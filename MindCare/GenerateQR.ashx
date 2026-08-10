@@ -1,0 +1,1 @@
+﻿<%@ WebHandler Language="C#" CodeBehind="GenerateQR.ashx.cs" Class="GenerateQR" %>

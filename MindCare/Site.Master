@@ -1,0 +1,145 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="Site.Master.cs" Inherits="SiteMaster" %>
+<!DOCTYPE html>
+<html lang="en">
+<head runat="server">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MindCare - Therapist Appointment Booking</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/Content/mindcare.css" runat="server" />
+    <asp:ContentPlaceHolder ID="HeadContent" runat="server" />
+</head>
+<body>
+    <!-- form1 is the sticky-footer flex container - see .mc-page-wrapper /
+         .mc-page-content in mindcare.css. Whatever height the page content is,
+         the footer sits at the bottom of the viewport instead of floating
+         right after short content. -->
+    <form id="form1" runat="server" class="mc-page-wrapper" enctype="multipart/form-data">
+
+        <!-- ============ GLOBAL LOADING OVERLAY ============ -->
+        <!-- Shown by the script at the bottom the instant ANY postback starts
+             (button click, link-button click, form submit) and stays up until
+             the new page finishes loading - since classic Web Forms postbacks
+             are full page reloads, not AJAX, this is really just "cover the
+             screen until the browser replaces it with the response". -->
+        <div id="mcLoadingOverlay" class="mc-loading-overlay">
+            <div class="mc-spinner"></div>
+            <p>Please wait...</p>
+        </div>
+
+        <!-- ============ NAVIGATION BAR ============ -->
+        <div class="mc-navbar">
+            <a href="~/Default.aspx" runat="server" class="brand">🧠 MindCare</a>
+            <div class="nav-links">
+                <a href="~/Default.aspx" runat="server" id="hlHome">Home</a>
+                <a href="~/About.aspx" runat="server" id="hlAbout">About Us</a>
+                <a href="~/FindTherapist.aspx" runat="server" id="hlFindTherapistNav">Find Therapist</a>
+                <a href="~/Contact.aspx" runat="server" id="hlContactNav">Contact</a>
+
+                <asp:PlaceHolder ID="phGuestLinks" runat="server">
+                    <a href="~/Login.aspx" runat="server">Login</a>
+                    <a href="~/Register.aspx" runat="server" class="mc-btn" style="padding:8px 18px;">Register</a>
+                </asp:PlaceHolder>
+
+                <asp:PlaceHolder ID="phLoggedInLinks" runat="server" Visible="false">
+                    <div class="mc-account-dropdown">
+                        <button type="button" id="mcAccountToggle" class="mc-account-toggle">
+                            👤 <asp:Literal ID="litAccountName" runat="server" /> <span class="mc-caret">▾</span>
+                        </button>
+                        <div id="mcAccountMenu" class="mc-account-menu">
+                            <a id="hlDashboard" runat="server">📊 Dashboard</a>
+                            <a id="hlProfile" runat="server">👤 My Profile</a>
+                            <asp:LinkButton ID="lnkLogout" runat="server" OnClick="lnkLogout_Click">🚪 Logout</asp:LinkButton>
+                        </div>
+                    </div>
+                </asp:PlaceHolder>
+            </div>
+        </div>
+
+        <!-- ============ PAGE CONTENT ============ -->
+        <div class="mc-page-content">
+            <asp:ContentPlaceHolder ID="MainContent" runat="server" />
+        </div>
+
+        <!-- ============ FOOTER ============ -->
+        <div class="mc-footer">
+            <p>&copy; <%= DateTime.Now.Year %> MindCare. All rights reserved. | Your mental wellness, our priority.</p>
+        </div>
+
+    </form>
+
+    <!-- Tiny click-toggle for the account dropdown - deliberately not relying on
+         CSS :hover alone, since hover doesn't work on mobile taps. -->
+    <!-- Global loading overlay logic. Classic Web Forms postbacks happen two
+         different ways under the hood, and both need to be caught separately:
+           1. asp:Button renders <input type="submit"> - clicking it triggers
+              a genuine NATIVE browser form submission, which fires the
+              form's 'submit' event. If a RequiredFieldValidator etc. blocks
+              it client-side, that native submit never happens, so 'submit'
+              never fires either - which is exactly what we want (no overlay
+              covering up a validation error message).
+           2. asp:LinkButton renders <a> and posts back via JavaScript calling
+              __doPostBack, which ultimately calls theForm.submit() as a
+              SCRIPTED call - browsers deliberately do NOT fire the 'submit'
+              event for scripted .submit() calls (this is spec behavior, not
+              a bug), so listening for 'submit' alone would miss every
+              LinkButton on the site. Overriding the submit method itself
+              catches this, and it's still safe to show the overlay there
+              since ASP.NET's own WebForm_DoPostBackWithOptions already runs
+              client-side validation and only calls .submit() if it passed. -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var toggle = document.getElementById('mcAccountToggle');
+            var menu = document.getElementById('mcAccountMenu');
+            if (toggle && menu) {
+                toggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    menu.classList.toggle('open');
+                });
+                document.addEventListener('click', function () {
+                    menu.classList.remove('open');
+                });
+            }
+
+            var overlay = document.getElementById('mcLoadingOverlay');
+            var theForm = document.getElementById('form1');
+            if (!overlay || !theForm) return;
+
+            var safetyTimeoutId = null;
+
+            function showLoadingOverlay() {
+                overlay.classList.add('visible');
+
+                // Safety net: if the server hangs or the connection drops,
+                // don't trap the user behind the overlay forever with no
+                // way to retry.
+                clearTimeout(safetyTimeoutId);
+                safetyTimeoutId = setTimeout(function () {
+                    overlay.classList.remove('visible');
+                }, 20000);
+            }
+
+            // Case 1: native submits (asp:Button, pressing Enter in a text
+            // field) - only reaches here once client-side validation, if
+            // any, has already passed.
+            theForm.addEventListener('submit', showLoadingOverlay);
+
+            // Case 2: scripted submits (asp:LinkButton / __doPostBack).
+            var originalSubmit = theForm.submit;
+            theForm.submit = function () {
+                showLoadingOverlay();
+                originalSubmit.call(theForm);
+            };
+        });
+
+        // If the page is restored from the browser's back/forward cache
+        // (bfcache) instead of a fresh load, DOMContentLoaded won't fire
+        // again - make sure the overlay isn't left stuck visible from
+        // whatever the user clicked right before navigating away.
+        window.addEventListener('pageshow', function () {
+            var overlay = document.getElementById('mcLoadingOverlay');
+            if (overlay) overlay.classList.remove('visible');
+        });
+    </script>
+</body>
+</html>
