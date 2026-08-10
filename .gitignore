@@ -361,3 +361,15 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# ==============================================================
+# Custom Additions for MindCare Appointment Booking System
+# ==============================================================
+
+# Ignore all user-uploaded files, but keep the folder itself
+MindCare/Uploads/*
+!MindCare/Uploads/.keep
+
+# Ignore local database/data files, but keep the folder itself
+MindCare/App_Data/*
+!MindCare/App_Data/.keep
